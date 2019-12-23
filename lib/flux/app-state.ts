@@ -5,7 +5,8 @@ import ActionMap from './action-map';
 import filterNotes from '../utils/filter-notes';
 import analytics from '../analytics';
 import * as T from '../types';
-import { TranslatableString } from '../types';
+import { AppState, State } from '../state';
+import actions from '../state/actions';
 
 const debug = Debug('appState');
 
@@ -32,16 +33,15 @@ const toggleSystemTag = (
     : note;
 };
 
-const initialState = {
-  editorMode: 'edit' as T.EditorMode,
-  filter: '' as string,
-  selectedNoteId: null as T.EntityId | null,
-  previousIndex: -1 as number,
-  notes: null as T.NoteEntity[] | null,
-  tags: [] as T.TagEntity[],
-  revision: null as T.NoteEntity | null,
+const initialState: AppState = {
+  filter: '',
+  selectedNoteId: null,
+  previousIndex: -1,
+  notes: null,
+  tags: [],
+  revision: null,
   showTrash: false,
-  listTitle: 'All Notes' as TranslatableString,
+  listTitle: 'All Notes',
   showNavigation: false,
   showNoteInfo: false,
   isViewingRevisions: false,
@@ -50,17 +50,15 @@ const initialState = {
   nextDialogKey: 0,
   shouldPrint: false,
   searchFocus: false,
-  unsyncedNoteIds: [] as T.EntityId[], // note bucket only
+  unsyncedNoteIds: [], // note bucket only
   isOffline: true, // disconnected from Simperium server
 };
-
-type State = typeof initialState;
 
 export const actionMap = new ActionMap({
   namespace: 'App',
   initialState,
   handlers: {
-    authChanged(state: State) {
+    authChanged(state: AppState) {
       return update(state, {
         notes: { $set: null },
         tags: { $set: [] },
@@ -68,7 +66,7 @@ export const actionMap = new ActionMap({
       });
     },
 
-    toggleNavigation(state: State) {
+    toggleNavigation(state: AppState) {
       if (state.showNavigation) {
         return update(state, {
           showNavigation: { $set: false },
@@ -95,7 +93,7 @@ export const actionMap = new ActionMap({
       },
     },
 
-    showAllNotes(state: State) {
+    showAllNotes(state: AppState) {
       return update(state, {
         showNavigation: { $set: false },
         editingTags: { $set: false },
@@ -108,7 +106,7 @@ export const actionMap = new ActionMap({
       });
     },
 
-    selectTrash(state: State) {
+    selectTrash(state: AppState) {
       return update(state, {
         showNavigation: { $set: false },
         editingTags: { $set: false },
@@ -134,7 +132,7 @@ export const actionMap = new ActionMap({
       },
     },
 
-    selectTag(state: State, { tag }: { tag: T.TagEntity }) {
+    selectTag(state: AppState, { tag }: { tag: T.TagEntity }) {
       return update(state, {
         showNavigation: { $set: false },
         editingTags: { $set: false },
@@ -147,13 +145,7 @@ export const actionMap = new ActionMap({
       });
     },
 
-    setEditorMode(state: State, { mode }: { mode: T.EditorMode }) {
-      return update(state, {
-        editorMode: { $set: mode },
-      });
-    },
-
-    showDialog(state: State, { dialog }) {
+    showDialog(state: AppState, { dialog }) {
       const { type, multiple = false, title, ...dialogProps } = dialog;
 
       // If there should only be one instance of the dialog in the stack
@@ -183,7 +175,7 @@ export const actionMap = new ActionMap({
       return update(state, updateCommands);
     },
 
-    closeDialog(state: State, { key }) {
+    closeDialog(state: AppState, { key }) {
       var dialogs = state.dialogs;
 
       for (let i = 0; i < dialogs.length; i++) {
@@ -195,13 +187,13 @@ export const actionMap = new ActionMap({
       }
     },
 
-    editTags(state: State) {
+    editTags(state: AppState) {
       return update(state, {
         editingTags: { $set: !state.editingTags },
       });
     },
 
-    search(state: State, { filter }: { filter: string }) {
+    search(state: AppState, { filter }: { filter: string }) {
       return update(state, {
         filter: { $set: filter },
       });
@@ -215,17 +207,18 @@ export const actionMap = new ActionMap({
         noteBucket: T.Bucket<T.Note>;
         content: string;
       }) {
-        return (dispatch, getState) => {
+        return (dispatch, getState: () => State) => {
+          // TODO: Once we can handle the Simperium side-effects
+          //       in middleware then this action will be the thing
+          //       that is called instead of `actionCreators.newNote()`
+          dispatch(actions.ui.createNote());
+
           const state = getState().appState;
           const settings = getState().settings;
           const timestamp = new Date().getTime() / 1000;
 
           if (state.showTrash) {
             dispatch(this.action('showAllNotes'));
-          }
-
-          if (settings.markdownEnabled) {
-            dispatch(this.action('setEditorMode', { mode: 'edit' }));
           }
 
           // insert a new note into the store and select it
@@ -238,7 +231,9 @@ export const actionMap = new ActionMap({
               modificationDate: timestamp,
               shareURL: '',
               publishURL: '',
-              tags: [].concat(state.tag ? state.tag.data.name : []),
+              tags: ([] as string[]).concat(
+                state.tag ? state.tag.data.name : []
+              ),
             },
             (e, note) => {
               dispatch(
@@ -255,7 +250,7 @@ export const actionMap = new ActionMap({
 
     loadNotes: {
       creator({ noteBucket }: { noteBucket: T.Bucket<T.Note> }) {
-        return (dispatch, getState) => {
+        return (dispatch, getState: () => State) => {
           const settings = getState().settings;
           const { sortType, sortReversed } = settings;
           var sortOrder: 'prev' | 'next';
@@ -290,7 +285,7 @@ export const actionMap = new ActionMap({
       },
     },
 
-    notesLoaded(state, { notes }: { notes: T.NoteEntity[] }) {
+    notesLoaded(state: AppState, { notes }: { notes: T.NoteEntity[] }) {
       const [pinned, notPinned] = partition(notes, note => note.pinned);
       const pinSortedNotes = [...pinned, ...notPinned];
 
@@ -337,25 +332,25 @@ export const actionMap = new ActionMap({
       },
     },
 
-    setRevision(state: State, { revision }) {
+    setRevision(state: AppState, { revision }) {
       return update(state, {
         revision: { $set: revision },
       });
     },
 
-    setIsViewingRevisions(state: State, { isViewingRevisions }) {
+    setIsViewingRevisions(state: AppState, { isViewingRevisions }) {
       return update(state, {
         isViewingRevisions: { $set: isViewingRevisions },
       });
     },
 
-    setShouldPrintNote(state: State, { shouldPrint = true }) {
+    setShouldPrintNote(state: AppState, { shouldPrint = true }) {
       return update(state, {
         shouldPrint: { $set: shouldPrint },
       });
     },
 
-    setSearchFocus(state: State, { searchFocus = true }) {
+    setSearchFocus(state: AppState, { searchFocus = true }) {
       return update(state, {
         searchFocus: { $set: searchFocus },
       });
@@ -391,7 +386,7 @@ export const actionMap = new ActionMap({
       },
     },
 
-    selectNote(state: State, { note, hasRemoteUpdate }) {
+    selectNote(state: AppState, { note, hasRemoteUpdate }) {
       return update(state, {
         editingTags: { $set: false },
         note: { $set: { ...note, hasRemoteUpdate } },
@@ -401,7 +396,7 @@ export const actionMap = new ActionMap({
       });
     },
 
-    closeNote(state: State, { previousIndex = -1 }) {
+    closeNote(state: AppState, { previousIndex = -1 }) {
       return update(state, {
         note: { $set: null },
         selectedNoteId: { $set: null },
@@ -411,7 +406,7 @@ export const actionMap = new ActionMap({
 
     noteUpdatedRemotely: {
       creator({ noteBucket, noteId, data, remoteUpdateInfo = {} }) {
-        return (dispatch, getState) => {
+        return (dispatch, getState: () => State) => {
           const state = getState().appState;
           const { patch } = remoteUpdateInfo;
 
@@ -444,7 +439,7 @@ export const actionMap = new ActionMap({
      */
     onNoteBeforeRemoteUpdate: {
       creator({ noteId }: { noteId: T.EntityId }) {
-        return (dispatch, getState) => {
+        return (dispatch, getState: () => State) => {
           const {
             appState: { selectedNoteId, note, notes },
           } = getState();
@@ -453,7 +448,9 @@ export const actionMap = new ActionMap({
             return note.data;
           }
 
-          const match = (notes || []).find(({ id }) => noteId === id);
+          const match = (notes || []).find(
+            ({ id }: T.NoteEntity) => noteId === id
+          );
 
           if (match) {
             return match.data;
@@ -547,7 +544,7 @@ export const actionMap = new ActionMap({
 
     emptyTrash: {
       creator({ noteBucket }: { noteBucket: T.Bucket<T.Note> }) {
-        return (dispatch, getState) => {
+        return (dispatch, getState: () => State) => {
           const state = getState().appState;
           const [deleted, notes] = partition(
             state.notes,
@@ -561,13 +558,13 @@ export const actionMap = new ActionMap({
       },
     },
 
-    noteRevisionsLoaded(state: State, { revisions }) {
+    noteRevisionsLoaded(state: AppState, { revisions }) {
       return update(state, {
         revisions: { $set: revisions },
       });
     },
 
-    toggleNoteInfo(state: State) {
+    toggleNoteInfo(state: AppState) {
       if (state.showNoteInfo) {
         return update(state, {
           showNoteInfo: { $set: false },
@@ -582,7 +579,7 @@ export const actionMap = new ActionMap({
     },
 
     tagsLoaded(
-      state: State,
+      state: AppState,
       { tags, sortTagsAlpha }: { tags: T.TagEntity[]; sortTagsAlpha: boolean }
     ) {
       tags = tags.slice();
@@ -604,7 +601,13 @@ export const actionMap = new ActionMap({
     },
 
     loadPreferences: {
-      creator({ callback, preferencesBucket }) {
+      creator({
+        callback,
+        preferencesBucket,
+      }: {
+        callback?: Function;
+        preferencesBucket: T.Bucket<T.Preferences>;
+      }) {
         return dispatch => {
           const objectKey = 'preferences-key';
 
@@ -641,7 +644,7 @@ export const actionMap = new ActionMap({
     },
 
     preferencesLoaded(
-      state: State,
+      state: AppState,
       { analyticsEnabled }: { analyticsEnabled: boolean }
     ) {
       return update(state, {
@@ -654,7 +657,7 @@ export const actionMap = new ActionMap({
     },
 
     setPreference<K extends keyof T.Preferences>(
-      state: State,
+      state: AppState,
       {
         key,
         value,
@@ -677,7 +680,7 @@ export const actionMap = new ActionMap({
 
     toggleShareAnalyticsPreference: {
       creator({ preferencesBucket }) {
-        return (dispatch, getState) => {
+        return (dispatch, getState: () => State) => {
           const {
             appState: {
               preferences: { analyticsEnabled },
@@ -695,13 +698,19 @@ export const actionMap = new ActionMap({
       },
     },
 
-    setUnsyncedNoteIds(state: State, { noteIds }: { noteIds: T.EntityId[] }) {
+    setUnsyncedNoteIds(
+      state: AppState,
+      { noteIds }: { noteIds: T.EntityId[] }
+    ) {
       return update(state, {
         unsyncedNoteIds: { $set: noteIds },
       });
     },
 
-    setConnectionStatus(state: State, { isOffline }: { isOffline: boolean }) {
+    setConnectionStatus(
+      state: AppState,
+      { isOffline }: { isOffline: boolean }
+    ) {
       return update(state, {
         isOffline: { $set: isOffline },
       });
