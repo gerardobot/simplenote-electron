@@ -1,6 +1,24 @@
 import { clamp } from 'lodash';
 
-export const initialState = {
+import * as T from '../../types';
+
+export type State = {
+  accountName: string | null;
+  autoHideMenuBar: boolean;
+  focusModeEnabled: boolean;
+  fontSize: number;
+  lineLength: T.LineLengthMode;
+  markdownEnabled: boolean;
+  noteDisplay: T.ListDisplayMode;
+  sortReversed: boolean;
+  sortTagsAlpha: boolean;
+  sortType: T.SortMode;
+  spellCheckEnabled: boolean;
+  theme: T.Theme;
+  wpToken: string | false;
+};
+
+export const initialState: State = {
   accountName: null,
   autoHideMenuBar: false,
   focusModeEnabled: false,
@@ -16,7 +34,7 @@ export const initialState = {
   wpToken: false,
 };
 
-function reducer(state = initialState, action) {
+function reducer(state = initialState, action): State {
   switch (action.type) {
     case 'setAccountName':
       return { ...state, accountName: action.accountName };

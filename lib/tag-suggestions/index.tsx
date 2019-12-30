@@ -4,6 +4,8 @@ import { connect } from 'react-redux';
 import appState from '../flux/app-state';
 import { tracks } from '../analytics';
 
+import * as T from '../types';
+
 const { search, setSearchFocus } = appState.actionCreators;
 const { recordEvent } = tracks;
 
@@ -58,7 +60,7 @@ export class TagSuggestions extends Component {
   }
 }
 
-const filterTags = (tags, query) =>
+const filterTags = (tags: T.TagEntity[], query: string) =>
   query
     ? tags
         .filter(tag => {
@@ -90,10 +92,11 @@ const filterTags = (tags, query) =>
         .slice(0, 5)
     : tags; // don't bother filtering if we don't have a query to filter by
 
-let lastTags = null;
-let lastQuery = null;
-let lastMatches = [];
-export const getMatchingTags = (tags, query) => {
+let lastTags: T.TagEntity[] = [];
+let lastQuery: string = '';
+let lastMatches: T.TagEntity[] = [];
+
+export const getMatchingTags = (tags: T.TagEntity[], query: string) => {
   if (lastTags === tags && lastQuery === query) {
     return lastMatches;
   }
