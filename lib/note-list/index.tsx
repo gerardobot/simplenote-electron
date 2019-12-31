@@ -137,7 +137,7 @@ const rowHeightCache = (
 
   const { preview } = getNoteTitleAndPreview(note);
 
-  const key = notes[index].id;
+  const key = note.id;
   const cached = previewCache.get(key);
 
   if ('undefined' !== typeof cached) {
@@ -307,7 +307,7 @@ const renderNote = (
 };
 
 type NoteListItem =
-  | T.NoteEntity
+  | ({ type: never } & T.NoteEntity)
   | { type: 'empty'; data: string }
   | { type: 'header'; data: string }
   | { type: 'tag-suggestions'; data: string };
