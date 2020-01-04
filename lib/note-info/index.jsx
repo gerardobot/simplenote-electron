@@ -190,7 +190,8 @@ function characterCount(content) {
 const { markdownNote, pinNote, toggleNoteInfo } = appState.actionCreators;
 
 const mapStateToProps = ({ appState: state }) => {
-  const filteredNotes = filterNotes(state);
+  // const filteredNotes = filterNotes(state);
+  const filteredNotes = state.notes || [];
   const noteIndex = Math.max(state.previousIndex, 0);
   const note = state.note ? state.note : filteredNotes[noteIndex];
   return {

@@ -3,6 +3,7 @@
  */
 import { difference, escapeRegExp, get } from 'lodash';
 import { NoteEntity, TagEntity } from '../types';
+import { AppState } from '../state';
 
 const tagPattern = () => /(?:\btag:)([\w-]+)(?!\B)/g;
 
@@ -73,7 +74,7 @@ const makeMatchesTag = (tag: TagEntity, filter = '') => (note: NoteEntity) => {
     }
   }
 
-  const givenTag = tag ? [get(tag, 'data.namer', '')] : [];
+  const givenTag = tag ? [get(tag, 'data.name', '')] : [];
 
   const noteTags = get(note, 'data.tags', []);
 
@@ -105,7 +106,7 @@ const emptyList = Object.freeze([]);
  * @TODO: Pre-index note title in domains/note
  */
 export default function filterNotes(
-  state,
+  state: AppState,
   notesArray: NoteEntity[] | null = null
 ) {
   const {

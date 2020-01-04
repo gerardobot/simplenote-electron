@@ -1,33 +1,23 @@
-import React, { Component } from 'react';
-import PropTypes from 'prop-types';
+import React, { Component, KeyboardEvent } from 'react';
 import { connect } from 'react-redux';
-import { debounce, isEmpty } from 'lodash';
+import { isEmpty } from 'lodash';
 import SmallCrossIcon from '../icons/cross-small';
 import appState from '../flux/app-state';
 import { tracks } from '../analytics';
 
+import { State } from '../state';
+
 const { search, setSearchFocus } = appState.actionCreators;
 const { recordEvent } = tracks;
 const KEY_ESC = 27;
-const SEARCH_DELAY = 500;
 
-export class SearchField extends Component {
+type Props = ReturnType<typeof mapStateToProps> &
+  ReturnType<typeof mapDispatchToProps>;
+
+export class SearchField extends Component<Props> {
   static displayName = 'SearchField';
 
-  static propTypes = {
-    filter: PropTypes.string,
-    isTagSelected: PropTypes.bool.isRequired,
-    placeholder: PropTypes.string.isRequired,
-    searchFocus: PropTypes.bool.isRequired,
-    onSearch: PropTypes.func.isRequired,
-    onSearchFocused: PropTypes.func.isRequired,
-  };
-
-  state = {
-    query: '',
-  };
-
-  componentDidUpdate() {
+  componentDidUpdate(prevProps: Props) {
     const { searchFocus, onSearchFocused, filter } = this.props;
 
     if (searchFocus && this.inputField) {
@@ -38,14 +28,14 @@ export class SearchField extends Component {
 
     // check to see if the filter has been updated (by a tag being clicked from suggestions)
     // this is a hack to work around query not being in app state (yet)
-    if (filter !== this.state.query) {
+    if (filter !== prevProps.filter) {
       this.inputField.value = filter;
     }
   }
 
-  interceptEsc = event => {
+  interceptEsc = (event: KeyboardEvent<HTMLInputElement>) => {
     if (KEY_ESC === event.keyCode) {
-      if (this.state.query === '') {
+      if (this.props.filter === '') {
         this.inputField.blur();
       }
       this.clearQuery();
@@ -54,23 +44,15 @@ export class SearchField extends Component {
 
   storeInput = r => (this.inputField = r);
 
-  debouncedSearch = debounce(query => this.props.onSearch(query), SEARCH_DELAY);
-
-  update = ({ target: { value: query } }) => {
-    this.setState({ query });
-    this.debouncedSearch(query);
+  update = (event: React.FormEvent<HTMLInputElement>) => {
+    this.props.onSearch(event.currentTarget.value);
   };
 
-  clearQuery = () => {
-    this.setState({ query: '' });
-    this.debouncedSearch('');
-    this.debouncedSearch.flush();
-  };
+  clearQuery = () => this.props.onSearch('');
 
   render() {
-    const { isTagSelected, placeholder } = this.props;
-    const { query } = this.state;
-    const hasQuery = query && query.length > 0;
+    const { filter, isTagSelected, placeholder } = this.props;
+    const hasQuery = filter.length > 0;
 
     const screenReaderLabel =
       'Search ' + (isTagSelected ? 'notes with tag ' : '') + placeholder;
@@ -84,7 +66,7 @@ export class SearchField extends Component {
           placeholder={placeholder}
           onChange={this.update}
           onKeyUp={this.interceptEsc}
-          value={query}
+          value={filter}
           spellCheck={false}
         />
         <button
@@ -99,7 +81,7 @@ export class SearchField extends Component {
   }
 }
 
-const mapStateToProps = ({ appState: state }) => ({
+const mapStateToProps = ({ appState: state }: State) => ({
   filter: state.filter,
   isTagSelected: !isEmpty(state.tag),
   placeholder: state.listTitle,
@@ -107,7 +89,7 @@ const mapStateToProps = ({ appState: state }) => ({
 });
 
 const mapDispatchToProps = dispatch => ({
-  onSearch: filter => {
+  onSearch: (filter: string) => {
     dispatch(search({ filter }));
     recordEvent('list_notes_searched');
   },

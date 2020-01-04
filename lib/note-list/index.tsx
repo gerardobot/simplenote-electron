@@ -558,11 +558,10 @@ const { recordEvent } = tracks;
 
 const mapStateToProps = ({
   appState: state,
+  ui: { filteredNotes },
   settings: { noteDisplay },
 }: State) => {
   const tagResultsFound = getMatchingTags(state.tags, state.filter).length;
-
-  const filteredNotes = filterNotes(state);
 
   const noteIndex = Math.max(state.previousIndex, 0);
   const selectedNote = state.note ? state.note : filteredNotes[noteIndex];
